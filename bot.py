@@ -1,25 +1,27 @@
 import os
-import asyncio
-from telethon import TelegramClient, events
-from flask import Flask
+import sys
 import threading
 import time
+from flask import Flask
+from telethon import TelegramClient, events
 
-# ১. Flask ওয়েব সার্ভার সেটআপ
+# ১. Render-কে শান্ত রাখার জন্য একটি সিম্পল ওয়েব সার্ভার
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "বট ২৪ ঘণ্টা লাইভ আছে! 🚀"
+    return "বট ২৪ ঘণ্টা সফলভাবে লাইভ আছে! 🚀"
 
 def run_flask():
+    # Render অটোমেটিক একটি PORT এনভায়রনমেন্ট ভ্যারিয়েবল দেয়, সেটা না পেলে ৮০৮০ পোর্ট ব্যবহার হবে
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-def keep_alive():
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+# একটি আলাদা ব্যাকগ্রাউন্ড থ্রেডে ওয়েব সার্ভারটি চালু করা
+server_thread = threading.Thread(target=run_flask)
+server_thread.daemon = True
+server_thread.start()
+print("ওয়েব সার্ভার সফলভাবে চালু হয়েছে...")
 
 # ২. টেলিগ্রাম ইউজারবট সেটআপ
 # ⚠️ আপনার আসল API ID এবং HASH বসান
@@ -28,7 +30,7 @@ api_hash = '09c8042e8a2dcdae3fd7eacaf796ec07'
 
 client = TelegramClient('termux_session', api_id, api_hash)
 
-# --- অফলাইন অটো-রিপ্লাই ফিচার ---
+# অটো-রিপ্লাই মেসেজ হ্যান্ডলার
 @client.on(events.NewMessage(incoming=True))
 async def auto_reply_handler(event):
     if event.is_private:
@@ -36,33 +38,14 @@ async def auto_reply_handler(event):
         if sender and not sender.is_self:
             await event.respond("Hello, please stay connected. I’ll get back to you as soon as I’m online again.")
 
-# টেস্ট কমান্ড
+# টেস্ট কমান্ড (.ping)
 @client.on(events.NewMessage(outgoing=True, pattern=r'\.ping'))
 async def ping_handler(event):
     await event.edit('ইউজারবট সফলভাবে লাইভ আছে! 🏓🔥')
 
-# মূল রানার ফাংশন
-def start_bot():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # বোত স্টার্ট করা
-    loop.run_until_complete(client.start())
-    print("টেলিগ্রাম ইউজারবট ব্যাকগ্রাউন্ডে রান হচ্ছে...")
-    
-    # সার্ভারকে জাগিয়ে রাখার লুপ
-    loop.create_task(client.run_until_disconnected())
-    loop.run_forever()
+print("টেলিグラム ক্লায়েন্ট স্টার্ট হচ্ছে...")
 
-if __name__ == '__main__':
-    keep_alive()
-    print("ওয়েব সার্ভার চালু হয়েছে...")
-    
-    # টেলিগ্রাম ক্লায়েন্টকে আলাদা থ্রেডে রান করানো যাতে Render ক্র্যাশ না করে
-    bot_thread = threading.Thread(target=start_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
-    
-    # মূল থ্রেডটি চালু রাখা
-    while True:
-        time.sleep(3600)
+# মূল থ্রেডেই টেলিগ্রাম ক্লায়েন্ট রান করা, যাতে Render এটিকে বন্ধ না করতে পারে
+with client:
+    print("টেলিগ্রাম ইউজারবট ব্যাকগ্রাউন্ডে সফলভাবে রান হচ্ছে...")
+    client.run_until_disconnected()
