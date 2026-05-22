@@ -1,0 +1,3 @@
+telethon
+flask
+werkzeug==2.2.2
